@@ -126,23 +126,22 @@ foreach(INDEX RANGE ${TARGETS_LENGTH})
     $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 endforeach()
 
+
 # Generate doxygen when building release type builds
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-  find_package(Doxygen)
-  add_custom_target(
-    "doc"
-    COMMAND "${Python3_EXECUTABLE}"
-      "${CMAKE_SOURCE_DIR}/tools/UpdateDoxygen.py"
-      --doxygen "${DOXYGEN_EXECUTABLE}"
-      --doxygen-output "${CMAKE_SOURCE_DIR}/docs/project.doxyfile"
-      --project-name "${PROJECT_NAME}"
-      --project-brief "${PROJECT_DESCRIPTION}"
-      --quiet
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Generating API documentation with Doxygen"
-    DEPENDS "${VERSION_DEPENDENCY}"
-  )
-endif()
+find_package(Doxygen)
+add_custom_target(
+  "doc"
+  COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tools/UpdateDoxygen.py"
+    --doxygen "${DOXYGEN_EXECUTABLE}"
+    --doxygen-output "${CMAKE_SOURCE_DIR}/docs/project.doxyfile"
+    --project-name "${PROJECT_NAME}"
+    --project-brief "${PROJECT_DESCRIPTION}"
+    --quiet
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Generating API documentation with Doxygen"
+  DEPENDS "${VERSION_DEPENDENCY}"
+)
 
 # Create an archive of the output files, ready to distribute
 set (ARCHIVE_FILES
@@ -153,9 +152,6 @@ foreach(TARGET ${TARGETS_DIST})
 endforeach()
 
 set (ARCHIVE_OUTPUT "${CMAKE_SOURCE_DIR}/bin/archive")
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  string(APPEND ARCHIVE_OUTPUT ${CMAKE_DEBUG_POSTFIX})
-endif()
 
 if(WIN32)
   add_custom_target(
