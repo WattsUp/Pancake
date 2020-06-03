@@ -1,0 +1,105 @@
+# Doxyfile 1.8.17
+
+# Configuration manual: http://www.doxygen.nl/manual/config.html
+
+#---------------------------------------------------------------------------
+# Project related configuration options
+#---------------------------------------------------------------------------
+@INCLUDE               = docs/project.doxyfile
+PROJECT_LOGO           = docs/logo.png
+OUTPUT_DIRECTORY       = docs/www
+TAB_SIZE               = 2
+CASE_SENSE_NAMES       = NO
+
+#---------------------------------------------------------------------------
+# Build related configuration options
+#---------------------------------------------------------------------------
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_PRIV_VIRTUAL   = NO
+EXTRACT_PACKAGE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+EXTRACT_LOCAL_METHODS  = NO
+EXTRACT_ANON_NSPACES   = NO
+FORCE_LOCAL_INCLUDES   = YES
+SORT_MEMBERS_CTORS_1ST = YES
+SORT_BY_SCOPE_NAME     = YES
+LAYOUT_FILE            = docs/templates/doxygen-layout.xml
+
+#---------------------------------------------------------------------------
+# Configuration options related to warning and progress messages
+#---------------------------------------------------------------------------
+QUIET                  = YES
+WARN_NO_PARAMDOC       = YES
+
+#---------------------------------------------------------------------------
+# Configuration options related to the input files
+#---------------------------------------------------------------------------
+FILE_PATTERNS          = *.c \
+                         *.cc \
+                         *.cxx \
+                         *.cpp \
+                         *.c++ \
+                         *.h \
+                         *.hh \
+                         *.hxx \
+                         *.hpp \
+                         *.h++ \
+                         *.md \
+                         *.py \
+                         *.pyw
+RECURSIVE              = YES
+EXCLUDE                = libraries build tools
+EXCLUDE_PATTERNS       = *test*
+IMAGE_PATH             = docs/images
+USE_MDFILE_AS_MAINPAGE = readme.md
+
+#---------------------------------------------------------------------------
+# Configuration options related to source browsing
+#---------------------------------------------------------------------------
+SOURCE_BROWSER         = YES
+
+#---------------------------------------------------------------------------
+# Configuration options related to the alphabetical class index
+#---------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+# Configuration options related to the HTML output
+#---------------------------------------------------------------------------
+GENERATE_HTML          = YES
+HTML_OUTPUT            = doxygen
+HTML_HEADER            = docs/templates/doxygen-header.html
+HTML_FOOTER            = docs/templates/doxygen-footer.html
+HTML_EXTRA_STYLESHEET  = docs/templates/doxygen-style.css
+HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+DISABLE_INDEX          = YES
+GENERATE_TREEVIEW      = YES
+USE_MATHJAX            = YES
+MATHJAX_FORMAT         = SVG
+SEARCHENGINE           = NO
+
+#---------------------------------------------------------------------------
+# Configuration options related to the other outputs
+#---------------------------------------------------------------------------
+GENERATE_LATEX         = NO
+GENERATE_RTF           = NO
+GENERATE_MAN           = NO
+GENERATE_XML           = NO
+GENERATE_DOCBOOK       = NO
+GENERATE_AUTOGEN_DEF   = NO
+GENERATE_PERLMOD       = NO
+
+#---------------------------------------------------------------------------
+# Configuration options related to the preprocessor
+#---------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+# Configuration options related to external references
+#---------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+# Configuration options related to the dot tool
+#---------------------------------------------------------------------------

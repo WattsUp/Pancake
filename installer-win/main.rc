@@ -1,0 +1,61 @@
+#include "winver.h"
+
+#define VERSION_DEFINES
+#include "common/version.h"
+
+#include "Resources.h"
+#ifndef RES_ARCHIVE
+#define RES_ARCHIVE 1
+#endif
+
+#ifdef DEBUG
+RES_ARCHIVE RCDATA bin/archived.zip
+#else
+RES_ARCHIVE RCDATA bin/archive.zip
+#endif
+
+#ifndef RES_ICON
+#define RES_ICON 1
+#endif
+
+#define NAME "Fractal Installer"
+#define DESCRIPTION NAME " - Self-extracting installer for fractal generator project template"
+#define HOMEPAGE "http://bradleydavis.tech/lab/cpptemplate"
+#define LICENSE ""
+#define COPYRIGHT ""
+
+#define EXE "installer.exe"
+#define ICO "installer.ico"
+
+RES_ICON ICON DISCARDABLE ICO
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_PATCH,VERSION_AHEAD
+PRODUCTVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_PATCH,VERSION_AHEAD
+FILEFLAGS 0
+FILEOS  VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904E4"
+    BEGIN
+    VALUE "FileDescription",  DESCRIPTION
+    VALUE "FileVersion",      VERSION_STRING_FULL
+    VALUE "InternalName",     NAME
+    VALUE "LegalCopyright",   COPYRIGHT
+    VALUE "License",          LICENSE
+    VALUE "Homepage",         HOMEPAGE
+    VALUE "OriginalFilename", EXE
+    VALUE "ProductName",      NAME
+    VALUE "ProductVersion",   VERSION_STRING_FULL
+    END
+  END
+
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1252
+  END
+END

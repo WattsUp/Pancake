@@ -1,0 +1,20 @@
+---
+Checks: '-*,
+        bugprone-*,
+        cppcoreguidelines-*,
+        clang-analyzer-*,
+        google-*,
+        -google-readability-braces-around-statements,
+        modernize-*,
+        -modernize-use-trailing-return-type,
+        performance-*,
+        portability-*,
+        readability-*'
+HeaderFilterRegex: '^[a-zA-Z]'
+FormatStyle: 'file'
+CheckOptions:
+  - key:    readability-braces-around-statements.ShortStatementLines
+    value:  '1'
+  - key:    readability-magic-numbers.IgnorePowersOf2IntegerValues
+    value:  'true'
+...
