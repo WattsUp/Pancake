@@ -34,3 +34,9 @@ Configure the project with default compiler and compile
 
 ### Projects ###
 * `project-stack` Command line application to normalize, register, align, and stack images together
+
+### Dependencies ###
+On Windows I recommend using [vcpkg](https://github.com/Microsoft/vcpkg)
+* [spdlog](https://github.com/gabime/spdlog) logging library
+* [Google Test](https://github.com/google/googletest) framework
+* [OpenImageIO](https://github.com/OpenImageIO/oiio)

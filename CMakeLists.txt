@@ -139,6 +139,10 @@ foreach(INDEX RANGE ${TARGETS_LENGTH})
   )
 endforeach()
 
+foreach(TARGET ${TARGETS_NODIST})
+  set_target_properties(${TARGET} PROPERTIES EXCLUDE_FROM_ALL ON)
+endforeach()
+
 
 # Generate doxygen when building release type builds
 find_package(Doxygen)
@@ -155,36 +159,6 @@ add_custom_target(
   COMMENT "Generating API documentation with Doxygen"
   DEPENDS "${VERSION_DEPENDENCY}"
 )
-
-# Create an archive of the output files, ready to distribute
-set (ARCHIVE_FILES
-  "${CMAKE_SOURCE_DIR}/bin/include"
-)
-foreach(TARGET ${TARGETS_DIST})
-  list(APPEND ARCHIVE_FILES $<TARGET_FILE:${TARGET}>)
-endforeach()
-
-set (ARCHIVE_OUTPUT "${CMAKE_SOURCE_DIR}/bin/archive")
-
-if(WIN32)
-  add_custom_target(
-    "archive"
-    COMMAND ${CMAKE_COMMAND} -E tar "cfv" "${ARCHIVE_OUTPUT}.zip" --format=zip
-      ${ARCHIVE_FILES}
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
-    COMMENT "Generating archive of output files"
-    DEPENDS ${ARCHIVE_FILES}
-  )
-else()
-  add_custom_target(
-    "archive"
-    COMMAND ${CMAKE_COMMAND} -E tar "cfvz" "${ARCHIVE_OUTPUT}.tar.gz"
-      ${ARCHIVE_FILES}
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
-    COMMENT "Generating archive of output files"
-    DEPENDS ${ARCHIVE_FILES}
-  )
-endif()
 
 # Add support for Mingw RC compiler
 if(WIN32)
@@ -228,19 +202,24 @@ foreach(TARGET ${TARGETS})
               LIBRARY DESTINATION lib
               ARCHIVE DESTINATION lib/static)
     endif()
-  endif()
+  endif ()
 endforeach()
 
-if(NOT WIN32)
-  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A template repository for C++ projects")
-  set(CPACK_PACKAGE_VENDOR "Bradley Davis")
-  set(CPACK_PACKAGE_CONTACT "Bradley Davis me@bradleydavis.tech")
-  set(CPACK_PACKAGE_VERSION_MAJOR "0")
-  set(CPACK_PACKAGE_VERSION_MINOR "1")
-  set(CPACK_PACKAGE_VERSION_PATCH "1")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A template repository for C++ projects")
+set(CPACK_PACKAGE_VENDOR "Bradley Davis")
+set(CPACK_PACKAGE_CONTACT "Bradley Davis me@bradleydavis.tech")
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "1")
+set(CPACK_PACKAGE_VERSION_PATCH "1")
 
-  set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "any")
-  set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "any")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
 
-  include(CPack)
+if(WIN32)
+  set(CPACK_GENERATOR "ZIP")
+  set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
+  set(CPACK_PACKAGE_DIRECTORY "${CMAKE_SOURCE_DIR}")
+  set(CPACK_PACKAGE_FILE_NAME "archive")
 endif()
+
+include(CPack)

@@ -8,7 +8,7 @@
 #define RES_ARCHIVE 1
 #endif
 
-RES_ARCHIVE RCDATA bin/archive.zip
+RES_ARCHIVE RCDATA archive.zip
 
 #ifndef RES_ICON
 #define RES_ICON 1
