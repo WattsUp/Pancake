@@ -11,6 +11,10 @@ else()
     set( CMAKE_BUILD_TYPE Release CACHE STRING "Set to either \"Release\" or \"Debug\"" )
 endif()
 
+if(NOT CMAKE_TOOLCHAIN_FILE)
+  message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE must be set, see vcpkg integrate install")
+endif()
+
 project("pancake")
 
 # Global setting: Use C++14
@@ -30,10 +34,10 @@ endif()
 cmake_policy(SET CMP0076 NEW)
 
 # Output binaries to ./bin
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
+# set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
+# set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
+# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
+# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
 
@@ -124,6 +128,17 @@ foreach(INDEX RANGE ${TARGETS_LENGTH})
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wconversion>
     $<$<CXX_COMPILER_ID:MSVC>:/WX>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>)
+
+  # Output binaries to ./bin
+  set_target_properties(${TARGET}
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin"
+    ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin"
+  )
 endforeach()
 
 
@@ -200,8 +215,6 @@ add_subdirectory("bin")
 
 # Add each target subdirectory
 add_subdirectory("project-stack")
-
-target_link_libraries("test" gtest)
 
 foreach(TARGET ${TARGETS})
   get_target_property(EXCLUDED ${TARGET} EXCLUDE_FROM_ALL)
