@@ -6,6 +6,7 @@
 #include <Windows.h>
 #include <miniz.h>
 #include <cstdio>
+#include <cxxopts.hpp>
 #include <exception>
 #include <fstream>
 
@@ -15,7 +16,7 @@
  * @param path to save the extracted contents to
  * @return bool true when extraction was successful
  */
-bool extractArchive(char* path) {
+bool extractArchive(const char* path) {
   // NOLINTNEXTLINE (cppcoreguidelines-pro-type-cstyle-cast)
   HRSRC res = ::FindResource(nullptr, MAKEINTRESOURCE(RES_ARCHIVE), RT_RCDATA);
   HGLOBAL data = ::LoadResource(nullptr, res);
@@ -23,7 +24,8 @@ bool extractArchive(char* path) {
   size_t size  = ::SizeofResource(nullptr, res);
 
   spdlog::info("Extracting archive to {}", path);
-  if ((_mkdir(path) != 0) && errno != EEXIST) {
+  if ((CreateDirectoryA(path, nullptr) == 0) &&
+      GetLastError() != ERROR_ALREADY_EXISTS) {
     spdlog::error("Failed to make directory {}: {}", path, errno);
     return false;
   }
@@ -50,7 +52,8 @@ bool extractArchive(char* path) {
     std::string filePath =
         std::string{path} + "/" + static_cast<char*>(stat.m_filename);
     if (mz_zip_reader_is_file_a_directory(&zip, i) != 0) {
-      if ((_mkdir(filePath.c_str()) != 0) && errno != EEXIST) {
+      if ((CreateDirectoryA(filePath.c_str(), nullptr) == 0) &&
+          GetLastError() != ERROR_ALREADY_EXISTS) {
         spdlog::error("Failed to make directory {}: {}", path, errno);
         return false;
       }
@@ -76,25 +79,65 @@ bool extractArchive(char* path) {
  * @return int zero on success, non-zero on failure
  */
 int main(int argc, char* argv[]) {
-  try {
-#if DEBUG
-    spdlog::info(VERSION_STRING_FULL);
-    spdlog::set_level(spdlog::level::debug);
-#else  /* DEBUG */
-    spdlog::info(VERSION_STRING);
-#endif /* DEBUG */
+  std::string installDirectory;
 
-    for (int i = 0; i < argc; ++i) {
-      // NOLINTNEXTLINE (cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      spdlog::info("Argument: {}", argv[i]);
+  try {
+    cxxopts::Options options("Pancake Installer",
+                             "Intall Pancake - a photography stacking tool");
+    options.positional_help("<Extra args>");
+
+    cxxopts::OptionAdder optionsAdder = options.add_options();
+    optionsAdder("v,verbose", "Verbose output",
+                 cxxopts::value<bool>()->default_value("false"));
+    optionsAdder("d,dir", "Install directory",
+                 cxxopts::value<std::string>()->default_value("temp"));
+    optionsAdder("version", "Software version",
+                 cxxopts::value<bool>()->default_value("false"));
+    optionsAdder("h,help", "Print usage");
+
+    cxxopts::ParseResult result = options.parse(argc, argv);
+
+    if (result.count("help") != 0) {
+      std::cout << options.help() << std::endl;
+      return 0;
     }
 
-    if (!extractArchive("temp")) {
+    if (result.count("version") != 0) {
+#if DEBUG
+      std::cout << VERSION_STRING_FULL << std::endl;
+#else  /* DEBUG */
+      std::cout << VERSION_STRING << std::endl;
+#endif /* DEBUG */
+      return 0;
+    }
+
+#if DEBUG
+    spdlog::set_level(spdlog::level::info);
+#else  /* DEBUG */
+    spdlog::set_level(spdlog::level::warn);
+#endif /* DEBUG */
+    if (result.count("verbose") != 0 && result["verbose"].as<bool>()) {
+#if DEBUG
+      spdlog::set_level(spdlog::level::debug);
+#else  /* DEBUG */
+      spdlog::set_level(spdlog::level::info);
+#endif /* DEBUG */
+    }
+
+    installDirectory = result["dir"].as<std::string>();
+  } catch (const std::exception& e) {
+    std::cerr << e.what() << std::endl;
+    return 1;
+  }
+
+  try {
+    spdlog::info("Installing Pancake to {}", installDirectory);
+    if (!extractArchive(installDirectory.c_str())) {
       spdlog::error("Error occurred whilst extracting archive");
     }
   } catch (std::exception& e) {
-    // Catch exceptions from spdlog
-    puts(e.what());
+    std::cerr << e.what() << std::endl;
+    return 1;
   }
 
   return 0;

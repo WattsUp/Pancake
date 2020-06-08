@@ -15,6 +15,9 @@ build
 __pycache__
 temp
 *.pkl
+archive.zip
+_CPack_Packages
+output
 
 # Exclude the files in the bin folder except files in subfolders, i.e. runtime resources
 bin/*

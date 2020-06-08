@@ -10,7 +10,7 @@ Checks: '-*,
         performance-*,
         portability-*,
         readability-*'
-HeaderFilterRegex: '^[a-zA-Z]'
+HeaderFilterRegex: '^[a-z]'
 FormatStyle: 'file'
 CheckOptions:
   - key:    readability-braces-around-statements.ShortStatementLines
