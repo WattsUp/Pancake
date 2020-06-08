@@ -40,3 +40,4 @@ On Windows I recommend using [vcpkg](https://github.com/Microsoft/vcpkg)
 * [spdlog](https://github.com/gabime/spdlog) logging library
 * [Google Test](https://github.com/google/googletest) framework
 * [OpenImageIO](https://github.com/OpenImageIO/oiio)
+* [cxxopts](https://github.com/jarro2783/cxxopts) command line parser
