@@ -25,24 +25,23 @@ int main(int argc, char* argv[]) {
       // NOLINTNEXTLINE (cppcoreguidelines-pro-bounds-pointer-arithmetic)
       spdlog::info("Argument: {}", argv[i]);
     }
-
-    const char* filename = "temp/foo.jpg";
-    const int xres = 640, yres = 480;
-    const int channels = 3;  // RGB
-    unsigned char pixels[xres * yres * channels];
-
-    std::unique_ptr<OIIO::ImageOutput> out =
-        OIIO::ImageOutput::create(filename);
-    if (!out) {
-      return 1;
-    }
-    OIIO::ImageSpec spec(xres, yres, channels, OIIO::TypeDesc::UINT8);
-    out->open(filename, spec);
-    out->write_image(OIIO::TypeDesc::UINT8, static_cast<void*>(pixels));
-    out->close();
   } catch (std::exception& e) {
     // Catch exceptions from spdlog
     puts(e.what());
   }
+
+  const char* filename = "temp/foo.jpg";
+  const int xres = 640, yres = 480;
+  const int channels = 3;  // RGB
+  unsigned char pixels[xres * yres * channels];
+
+  std::unique_ptr<OIIO::ImageOutput> out = OIIO::ImageOutput::create(filename);
+  if (!out) {
+    return 1;
+  }
+  OIIO::ImageSpec spec(xres, yres, channels, OIIO::TypeDesc::UINT8);
+  out->open(filename, spec);
+  out->write_image(OIIO::TypeDesc::UINT8, static_cast<void*>(pixels));
+  out->close();
   return 0;
 }

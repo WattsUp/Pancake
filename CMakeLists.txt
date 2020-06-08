@@ -33,13 +33,16 @@ endif()
 # Allow target_sources to use relative paths
 cmake_policy(SET CMP0076 NEW)
 
+# Allow install CODE|SCRIPT to use generator expressions
+cmake_policy(SET CMP0087 NEW)
+
 # Output binaries to ./bin
-# set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
-# set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
-# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
-# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/output/debug")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/output/release")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/output/debug")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/output/release")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/output/debug")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/output/release")
 
 # Targets not included in the public distributable
 set (TARGETS_NODIST
@@ -127,16 +130,10 @@ foreach(INDEX RANGE ${TARGETS_LENGTH})
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wconversion>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 
-  # Output binaries to ./bin
-  set_target_properties(${TARGET}
-    PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin"
-    ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin"
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin"
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin"
-  )
+  add_custom_command(TARGET ${TARGET} PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${CMAKE_SOURCE_DIR}/res/ $<TARGET_FILE_DIR:${TARGET}>)
+
 endforeach()
 
 foreach(TARGET ${TARGETS_NODIST})
@@ -183,27 +180,32 @@ include_directories("include")
 # Add each subdirectory
 add_subdirectory("common")
 add_subdirectory("installer-win")
-add_subdirectory("bin")
 
 # Add each target subdirectory
 add_subdirectory("project-stack")
 
-foreach(TARGET ${TARGETS})
-  get_target_property(EXCLUDED ${TARGET} EXCLUDE_FROM_ALL)
-  if (${EXCLUDED} STREQUAL "EXCLUDED-NOTFOUND")
-    if (WIN32)
-      install(TARGETS ${TARGET}
-              RUNTIME DESTINATION .
-              LIBRARY DESTINATION lib
-              ARCHIVE DESTINATION .)
-    else()
-      install(TARGETS ${TARGET}
-              RUNTIME DESTINATION bin
-              LIBRARY DESTINATION lib
-              ARCHIVE DESTINATION lib/static)
-    endif()
-  endif ()
+set(EXES "")
+
+foreach(TARGET ${TARGETS_DIST})
+  if (WIN32)
+    install(TARGETS ${TARGET}
+            RUNTIME DESTINATION .
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION .)
+    set(EXE $<TARGET_FILE:${TARGET}>)
+    list(APPEND EXES ${EXE})
+  else()
+    install(TARGETS ${TARGET}
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION lib
+            ARCHIVE DESTINATION lib/static)
+  endif()
 endforeach()
+
+install(DIRECTORY "res" DESTINATION .)
+# file(GLOB RESOURCES "res/*")
+# file(COPY ${RESOURCES} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG})
+# file(COPY ${RESOURCES} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE})
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A template repository for C++ projects")
 set(CPACK_PACKAGE_VENDOR "Bradley Davis")
@@ -223,3 +225,18 @@ if(WIN32)
 endif()
 
 include(CPack)
+
+if (WIN32)
+  install(CODE
+    "file(GET_RUNTIME_DEPENDENCIES
+            RESOLVED_DEPENDENCIES_VAR resolved_deps
+            UNRESOLVED_DEPENDENCIES_VAR unresolved_deps
+            EXECUTABLES ${EXES}
+            PRE_EXCLUDE_REGEXES \"api-ms.*\"
+            POST_INCLUDE_REGEXES \"${CMAKE_SOURCE_DIR}.*\"
+            POST_EXCLUDE_REGEXES \".*\"
+            )
+    file(COPY \${resolved_deps} DESTINATION \"${CPACK_PACKAGE_DIRECTORY}/_CPack_Packages/win32/ZIP/archive\")
+    file(INSTALL \${resolved_deps} DESTINATION \"${CMAKE_INSTALL_PREFIX}\")"
+  )
+endif()
