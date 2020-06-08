@@ -11,7 +11,7 @@ else()
     set( CMAKE_BUILD_TYPE Release CACHE STRING "Set to either \"Release\" or \"Debug\"" )
 endif()
 
-if(NOT CMAKE_TOOLCHAIN_FILE)
+if(WIN32 AND NOT CMAKE_TOOLCHAIN_FILE)
   message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE must be set, see vcpkg integrate install")
 endif()
 

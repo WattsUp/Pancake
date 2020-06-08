@@ -68,7 +68,6 @@ int main(int argc, char* argv[]) {
          result["file"].as<std::vector<std::string>>()) {
       spdlog::info("Positional argument: {}", file);
     }
-
   } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
     return 1;
