@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
 
-# Must use GNUInstallDirs to install libraries into correct
-# locations on all platforms.
-include(GNUInstallDirs)
-
 # Default to CMAKE_BUILD_TYPE = Release unless overridden on command line
 if( DEFINED CMAKE_BUILD_TYPE )
     set( CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Set to either \"Release\" or \"Debug\"" )
@@ -16,6 +12,16 @@ if(WIN32 AND NOT CMAKE_TOOLCHAIN_FILE)
 endif()
 
 project("pancake")
+
+# Must use GNUInstallDirs to install libraries into correct
+# locations on all platforms.
+include(GNUInstallDirs)
+
+# 64 bit only
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message("Please switch to a x64 build")
+  return()
+endif()
 
 # Global setting: Use C++14
 set(CMAKE_CXX_STANDARD 14)

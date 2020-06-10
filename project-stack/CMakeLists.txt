@@ -1,5 +1,6 @@
 set (SRCS
   "main.cpp"
+  "arguments.cpp"
 )
 
 set (SRCS_UNIX
