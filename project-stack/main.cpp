@@ -1,7 +1,7 @@
 #include "common/logging.hpp"
 #include "common/version.h"
 
-#include <OpenImageIO/imageio.h>
+#include <Magick++/Magick++.h>
 
 #include <cstdio>
 #include <cxxopts.hpp>
@@ -15,6 +15,8 @@
  * @return int zero on success, non-zero on failure
  */
 int main(int argc, char* argv[]) {
+  Magick::InitializeMagick(*argv);
+
   try {
     cxxopts::Options options("Pancake", "A photography stacking tool");
     options.positional_help("<files>");
@@ -67,24 +69,17 @@ int main(int argc, char* argv[]) {
     for (const std::string& file :
          result["file"].as<std::vector<std::string>>()) {
       spdlog::info("Positional argument: {}", file);
+      Magick::Image image;
+      image.quiet(false);
+      image.read(file);
+      image.resize(Magick::Geometry(100, 100));
+      // image.modulate(2.0,1.0,1.0);
+      image.write("temp/output/" + file);
     }
   } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
 
-  const char* filename = "temp/foo.jpg";
-  const int xres = 640, yres = 480;
-  const int channels = 3;  // RGB
-  unsigned char pixels[xres * yres * channels];
-
-  std::unique_ptr<OIIO::ImageOutput> out = OIIO::ImageOutput::create(filename);
-  if (!out) {
-    return 1;
-  }
-  OIIO::ImageSpec spec(xres, yres, channels, OIIO::TypeDesc::UINT8);
-  out->open(filename, spec);
-  out->write_image(OIIO::TypeDesc::UINT8, static_cast<void*>(pixels));
-  out->close();
   return 0;
 }
