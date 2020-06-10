@@ -4,6 +4,7 @@
 #ifdef WIN32
 #define SPDLOG_WCHAR_TO_UTF8_SUPPORT
 #endif
+#include <spdlog/fmt/ostr.h>
 #include <spdlog/spdlog.h>
 
 namespace common {

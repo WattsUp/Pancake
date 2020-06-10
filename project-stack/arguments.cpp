@@ -64,9 +64,57 @@ void Arguments::parse(
     throw std::invalid_argument("Requires at least two files");
   }
 
-  for (const std::string& path :
+  bool recursive =
+      (result.count("recursive") != 0 && result["recursive"].as<bool>());
+
+  static const boost::regex extFilter(
+      "\\.(bmp|dip|jpeg|jpg|jpe|jp2|png|webp|pbm|pgm|ppm|pxm|pnm|pfm|sr|ras|"
+      "tiff|tif|exr|hdr|pic)",
+      boost::regex::icase);
+  for (const std::string& pathStr :
        result["path"].as<std::vector<std::string>>()) {
-    spdlog::info("Path: {}", path);
+    boost::filesystem::path path(pathStr);
+    addPath(path, extFilter, recursive);
+  }
+
+  for (const boost::filesystem::path& file : files) {
+    spdlog::info("Processing {}", file);
+  }
+}
+
+/**
+ * @brief If path is a compatible file, add to files. If directory, search its
+ * children
+ *
+ * @param path to add
+ * @param extFilter regex to match extension to
+ * @param recursive true will search directories of directories, false will not
+ */
+void Arguments::addPath(const boost::filesystem::path& path,
+                        const boost::regex& extFilter,
+                        bool recursive) {
+  if (!boost::filesystem::exists(path)) {
+    spdlog::warn("Path {} does not exist", path);
+    return;
+  }
+  if (boost::filesystem::is_regular_file(path)) {
+    if (!boost::regex_match(path.extension().string(), extFilter)) {
+      spdlog::warn("Path {} does not have a compatible extension", path);
+      return;
+    }
+    files.emplace_back(path);
+  } else if (boost::filesystem::is_directory(path)) {
+    boost::filesystem::directory_iterator itr(path);
+    boost::filesystem::directory_iterator end;
+    for (; itr != end; ++itr) {
+      if (boost::filesystem::is_directory(*itr) && !recursive) {
+        continue;
+      }
+      addPath(*itr, extFilter, recursive);
+    }
+  } else {
+    spdlog::warn("Path {} is an unknown type", path);
+    return;
   }
 }
 
