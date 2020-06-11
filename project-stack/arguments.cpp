@@ -76,10 +76,6 @@ void Arguments::parse(
     boost::filesystem::path path(pathStr);
     addPath(path, extFilter, recursive);
   }
-
-  for (const boost::filesystem::path& file : files) {
-    spdlog::info("Processing {}", file);
-  }
 }
 
 /**

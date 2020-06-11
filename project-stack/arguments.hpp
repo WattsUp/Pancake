@@ -15,6 +15,15 @@ class Arguments {
 
   void parse(int argc, char* argv[]);
 
+  /**
+   * @brief Get the files given from the command line
+   *
+   * @return const std::list<boost::filesystem::path>&
+   */
+  inline const std::list<boost::filesystem::path>& getFiles() const {
+    return files;
+  }
+
  private:
   void addPath(const boost::filesystem::path& path,
                const boost::regex& extFilter,

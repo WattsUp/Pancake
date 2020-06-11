@@ -1,6 +1,7 @@
 set (SRCS
   "main.cpp"
   "arguments.cpp"
+  "image.cpp"
 )
 
 set (SRCS_UNIX
