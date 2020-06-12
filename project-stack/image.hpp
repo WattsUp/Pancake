@@ -14,14 +14,28 @@ class Image {
   void detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D);
   size_t generateAlignment(const cv::Ptr<cv::DescriptorMatcher>& matcher,
                            const Image& reference);
-  void applyAlignment();
+  std::vector<double> applyAlignment();
+
+  void crop(const std::vector<double>& rect);
+
+  double computeGradient();
+  const cv::Mat& quantizeGradient(const double maxGradientVal);
+  void combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient);
 
   void save(const boost::filesystem::path& path) const;
+
+  /**
+   * @brief Get the type of image stored
+   *
+   * @return int OpenCV image types: CV_8U...
+   */
+  inline int type() const { return image.type(); }
 
  private:
   static bool compareMatches(const cv::DMatch& i, const cv::DMatch& j);
 
   cv::Mat image;
+  cv::Mat gradient;
 
   std::vector<cv::KeyPoint> keyPoints;
   cv::Mat descriptors;

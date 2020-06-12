@@ -46,8 +46,8 @@ void Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
   // }
 
   feature2D->detectAndCompute(imageGrey, cv::noArray(), keyPoints, descriptors);
-  cv::drawKeypoints(image, keyPoints, image, cv::Scalar::all(-1),
-                    cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+  // cv::drawKeypoints(image, keyPoints, image, cv::Scalar::all(-1),
+  //                   cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 }
 
 /**
@@ -87,8 +87,10 @@ size_t Image::generateAlignment(const cv::Ptr<cv::DescriptorMatcher>& matcher,
 /**
  * @brief Apply alignment generated in generateAlignment
  *
+ * @return std::vector<double> minimum rectangle for cropping purposes: top,
+ * right, left, bottom
  */
-void Image::applyAlignment() {
+std::vector<double> Image::applyAlignment() {
   if (pointsImage.empty()) {
     throw std::logic_error(
         "generateAlignment must be called before applyAlignment");
@@ -105,6 +107,100 @@ void Image::applyAlignment() {
   // Assumes the perspective does not change
   cv::Mat affine = cv::estimateAffine2D(pointsImage, pointsReference);
   cv::warpAffine(image, image, affine, image.size());
+
+  // Get bounding box
+  std::vector<cv::Point2d> corners(4);
+  corners[0] = cv::Point2d(0, 0);
+  corners[1] = cv::Point2d(static_cast<double>(image.cols), 0);
+  corners[2] = cv::Point2d(static_cast<double>(image.cols),
+                           static_cast<double>(image.rows));
+  corners[3] = cv::Point2d(0, static_cast<double>(image.rows));
+  for (cv::Point2d& point : corners) {
+    cv::Point2d original = point;
+
+    point.x = original.x * affine.at<double>(0, 0) +
+              original.y * affine.at<double>(0, 1) + affine.at<double>(0, 2);
+    point.y = original.x * affine.at<double>(1, 0) +
+              original.y * affine.at<double>(1, 1) + affine.at<double>(1, 2);
+  }
+
+  // Find smallest rectangle that fits in the transformed image
+  std::vector<double> rect(4);
+  rect[0] = MAX(corners[0].y, corners[1].y);  // Top
+  rect[1] = MIN(corners[1].x, corners[2].x);  // Right
+  rect[2] = MIN(corners[2].y, corners[3].y);  // Bottom
+  rect[3] = MAX(corners[0].x, corners[3].x);  // Left
+
+  // corners[0]    = cv::Point2d(rect[3], rect[0]);
+  // corners[1]    = cv::Point2d(rect[1], rect[0]);
+  // corners[2]    = cv::Point2d(rect[1], rect[2]);
+  // corners[3]    = cv::Point2d(rect[3], rect[2]);
+  // cv::line(image, corners[0], corners[1], cv::Scalar(0, 255, 0));
+  // cv::line(image, corners[1], corners[2], cv::Scalar(0, 255, 0));
+  // cv::line(image, corners[2], corners[3], cv::Scalar(0, 255, 0));
+  // cv::line(image, corners[3], corners[0], cv::Scalar(0, 255, 0));
+  return rect;
+}
+
+/**
+ * @brief Crop image to rectangle
+ *
+ * @param rect top, right, bottom, left
+ */
+void Image::crop(const std::vector<double>& rect) {
+  int top    = static_cast<int>(ceil(rect[0]));
+  int right  = static_cast<int>(floor(rect[1]));
+  int bottom = static_cast<int>(floor(rect[2]));
+  int left   = static_cast<int>(ceil(rect[3]));
+  cv::Rect cropROI(left, top, right - left, bottom - top);
+  image = image(cropROI);
+}
+
+/**
+ * @brief Compute the gradient of the image by bluring then taking the laplacian
+ *
+ * @param double maximum value of the computed gradient
+ */
+double Image::computeGradient() {
+  static constexpr int laplacianSize = 5;
+  cv::Mat grey;
+  cv::GaussianBlur(image, grey, cv::Size(laplacianSize, laplacianSize), 0);
+  cv::cvtColor(grey, grey, cv::COLOR_BGR2GRAY);
+  cv::Laplacian(grey, gradient, CV_64F, laplacianSize);
+  gradient = cv::abs(gradient);
+
+  static constexpr double blurSize = 2.5;
+  cv::GaussianBlur(gradient, gradient, cv::Size(0, 0), blurSize);
+  // cv::normalize(gradient, gradient, 0.0, 1.0, cv::NORM_MINMAX);
+  double min;
+  double max;
+  cv::minMaxLoc(gradient, &min, &max);
+  return max;
+}
+
+/**
+ * @brief Quantize the gradient to integers for binary comparison
+ *
+ * @param maxGradientVal to scale to
+ * @return const cv::Mat&
+ */
+const cv::Mat& Image::quantizeGradient(const double maxGradientVal) {
+  cv::Mat tmp;
+  gradient.convertTo(tmp, CV_32S,
+                     std::numeric_limits<int32_t>::max() / maxGradientVal);
+  gradient = tmp;
+  return gradient;
+}
+
+/**
+ * @brief Mask the image where its gradient != maxGradient
+ *
+ * @param dst destination image to add to
+ * @param maxGradient to compare its gradient to
+ */
+void Image::combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient) {
+  cv::compare(gradient, maxGradient, gradient, cv::CMP_EQ);
+  cv::add(image, dst, dst, gradient);
 }
 
 /**
@@ -115,7 +211,7 @@ void Image::applyAlignment() {
 void Image::save(const boost::filesystem::path& path) const {
   spdlog::info("Saving image to {}", path);
   if (!cv::imwrite(path.string(), image)) {
-    throw std::exception(("Failed to save iamge to " + path.string()).c_str());
+    throw std::exception(("Failed to save image to " + path.string()).c_str());
   }
 }
 

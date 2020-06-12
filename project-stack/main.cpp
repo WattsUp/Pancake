@@ -3,6 +3,7 @@
 #include "image.hpp"
 
 #include <exception>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/xfeatures2d/nonfree.hpp>
 
 /**
@@ -19,7 +20,13 @@ int main(int argc, char* argv[]) {
 
   try {
     arguments.parse(argc, argv);
+  } catch (const std::exception& e) {
+    spdlog::error(e.what());
+    arguments.helpAndExit();
+    return 1;
+  }
 
+  try {
     cv::Ptr<cv::Feature2D> feature2D;
     // feature2D = cv::ORB::create(1000);
     feature2D = cv::xfeatures2d::SIFT::create();
@@ -59,17 +66,64 @@ int main(int argc, char* argv[]) {
     }
 
     // Use that best reference image to warp transform the rest
+    std::vector<double> cropRect(4);
+    cropRect[0] = 0;                                   // Top
+    cropRect[1] = std::numeric_limits<double>::max();  // Right
+    cropRect[2] = std::numeric_limits<double>::max();  // Bottom
+    cropRect[3] = 0;                                   // Left
     for (pancake::Image& image : images) {
       image.generateAlignment(matcher, *bestReferenceImage);
-      image.applyAlignment();
+      std::vector<double> rect = image.applyAlignment();
+
+      cropRect[0] = MAX(cropRect[0], rect[0]);  // Top
+      cropRect[1] = MIN(cropRect[1], rect[1]);  // Right
+      cropRect[2] = MIN(cropRect[2], rect[2]);  // Bottom
+      cropRect[3] = MAX(cropRect[3], rect[3]);  // Left
     }
 
-    int i = 0;
-    for (const pancake::Image& image : images) {
-      std::string path = "temp/" + std::to_string(i) + ".jpg";
-      image.save(boost::filesystem::path(path));
-      ++i;
+    // Compute the gradient and grab the maximum value amongst all images
+    double maxGradientVal = 0.0;
+    for (pancake::Image& image : images) {
+      spdlog::debug("Cropping image");
+      image.crop(cropRect);
+      spdlog::debug("Computing gradient");
+      maxGradientVal = cv::max(maxGradientVal, image.computeGradient());
     }
+
+    cv::Mat maxGradient;
+    for (pancake::Image& image : images) {
+      spdlog::debug("Quantizing gradient");
+      if (maxGradient.size().empty()) {
+        image.quantizeGradient(maxGradientVal).copyTo(maxGradient);
+      } else {
+        maxGradient =
+            cv::max(maxGradient, image.quantizeGradient(maxGradientVal));
+      }
+    }
+
+    // double minGradientVal;
+    // double maxGradientVal;
+    // cv::minMaxLoc(maxGradient, &minGradientVal, &maxGradientVal);
+    // maxGradient = maxGradient / maxGradientVal;
+
+    cv::Mat outputImage =
+        cv::Mat::zeros(maxGradient.size(), images.front().type());
+    for (pancake::Image& image : images) {
+      spdlog::debug("Combining image");
+      image.combineByMaskGradient(outputImage, maxGradient);
+    }
+    if (!cv::imwrite(arguments.getOutput().string(), outputImage)) {
+      throw std::exception(
+          ("Failed to save image to " + arguments.getOutput().string())
+              .c_str());
+    }
+
+    // int i = 0;
+    // for (const pancake::Image& image : images) {
+    //   std::string path = "temp/" + std::to_string(i) + ".jpg";
+    //   image.save(boost::filesystem::path(path));
+    //   ++i;
+    // }
   } catch (const std::exception& e) {
     spdlog::error(e.what());
     return 1;

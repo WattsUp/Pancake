@@ -3,20 +3,13 @@
 #include "common/logging.hpp"
 #include "common/version.h"
 
-#include <cxxopts.hpp>
-
 namespace pancake {
 
 /**
- * @brief Parse arguments from the command line argument array
+ * @brief Construct a new Arguments:: Arguments object
  *
- * @param argc count of arguments
- * @param argv array of arguments
  */
-void Arguments::parse(
-    int argc,
-    char* argv[]) {  // NOLINT (cppcoreguidelines-avoid-c-arrays)
-  cxxopts::Options options("Pancake", "A photography stacking tool");
+Arguments::Arguments() : options("Pancake", "A photography stacking tool") {
   options.positional_help("<paths...>");
 
   cxxopts::OptionAdder optionsAdder = options.add_options();
@@ -29,13 +22,24 @@ void Arguments::parse(
   optionsAdder("h,help", "Print usage");
   optionsAdder("p,path", "Files (or directories) to stack",
                cxxopts::value<std::vector<std::string>>());
+  optionsAdder("o,output", "Output file location",
+               cxxopts::value<std::string>());
+}
 
+/**
+ * @brief Parse arguments from the command line argument array
+ *
+ * @param argc count of arguments
+ * @param argv array of arguments
+ */
+void Arguments::parse(
+    int argc,
+    char* argv[]) {  // NOLINT (cppcoreguidelines-avoid-c-arrays)
   options.parse_positional("path");
   cxxopts::ParseResult result = options.parse(argc, argv);
 
   if (result.count("help") != 0) {
-    std::cout << options.help() << std::endl;
-    exit(0);
+    helpAndExit();
   }
 
   if (result.count("version") != 0) {
@@ -60,6 +64,11 @@ void Arguments::parse(
     throw std::invalid_argument("Requires at least two files");
   }
 
+  if (result.count("output") == 0) {
+    throw std::invalid_argument("Requires an output file");
+  }
+  output = boost::filesystem::path(result["output"].as<std::string>());
+
   bool recursive =
       (result.count("recursive") != 0 && result["recursive"].as<bool>());
 
@@ -75,6 +84,15 @@ void Arguments::parse(
   if (files.size() < 2) {
     throw std::invalid_argument("Requires at least two files");
   }
+}
+
+/**
+ * @brief Print help message
+ *
+ */
+void Arguments::helpAndExit() {
+  std::cout << options.help() << std::endl;
+  exit(0);
 }
 
 /**

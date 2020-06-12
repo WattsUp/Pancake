@@ -3,6 +3,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
+#include <cxxopts.hpp>
 #include <list>
 #include <string>
 #include <vector>
@@ -11,9 +12,10 @@ namespace pancake {
 
 class Arguments {
  public:
-  Arguments() = default;
+  Arguments();
 
   void parse(int argc, char* argv[]);
+  void helpAndExit();
 
   /**
    * @brief Get the files given from the command line
@@ -24,12 +26,22 @@ class Arguments {
     return files;
   }
 
+  /**
+   * @brief Get the output file
+   *
+   * @return const boost::filesystem::path&
+   */
+  inline const boost::filesystem::path& getOutput() const { return output; }
+
  private:
   void addPath(const boost::filesystem::path& path,
                const boost::regex& extFilter,
                bool recursive);
 
+  cxxopts::Options options;
+
   std::list<boost::filesystem::path> files;
+  boost::filesystem::path output;
 };
 
 }  // namespace pancake
