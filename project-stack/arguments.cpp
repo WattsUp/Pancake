@@ -24,6 +24,10 @@ Arguments::Arguments() : options("Pancake", "A photography stacking tool") {
                cxxopts::value<std::vector<std::string>>());
   optionsAdder("o,output", "Output file location",
                cxxopts::value<std::string>());
+  optionsAdder("depth-map",
+               "Output image representing a depth map of the scene (images "
+               "must be in order)",
+               cxxopts::value<bool>()->default_value("false"));
 }
 
 /**
@@ -83,6 +87,10 @@ void Arguments::parse(
   }
   if (files.size() < 2) {
     throw std::invalid_argument("Requires at least two files");
+  }
+
+  if (result.count("depth-map") != 0 && result["depth-map"].as<bool>()) {
+    depthMap = true;
   }
 }
 

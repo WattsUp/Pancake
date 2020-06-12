@@ -33,6 +33,14 @@ class Arguments {
    */
   inline const boost::filesystem::path& getOutput() const { return output; }
 
+  /**
+   * @brief Output depth map or real image
+   *
+   * @return true if output should be a depth map
+   * @return false otherwise
+   */
+  inline bool outputDepthMap() const { return depthMap; };
+
  private:
   void addPath(const boost::filesystem::path& path,
                const boost::regex& extFilter,
@@ -42,6 +50,8 @@ class Arguments {
 
   std::list<boost::filesystem::path> files;
   boost::filesystem::path output;
+
+  bool depthMap = false;
 };
 
 }  // namespace pancake

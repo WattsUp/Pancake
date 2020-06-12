@@ -108,9 +108,19 @@ int main(int argc, char* argv[]) {
 
     cv::Mat outputImage =
         cv::Mat::zeros(maxGradient.size(), images.front().type());
-    for (pancake::Image& image : images) {
-      spdlog::debug("Combining image");
-      image.combineByMaskGradient(outputImage, maxGradient);
+    if (arguments.outputDepthMap()) {
+      double hue     = 0.0;
+      double hueStep = 180.0 / images.size();  // NOLINT
+      for (pancake::Image& image : images) {
+        spdlog::debug("Combining image");
+        image.combineByMaskGradient(outputImage, maxGradient, hue);
+        hue += hueStep;
+      }
+    } else {
+      for (pancake::Image& image : images) {
+        spdlog::debug("Combining image");
+        image.combineByMaskGradient(outputImage, maxGradient);
+      }
     }
     if (!cv::imwrite(arguments.getOutput().string(), outputImage)) {
       throw std::exception(

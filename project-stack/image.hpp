@@ -21,6 +21,9 @@ class Image {
   double computeGradient();
   const cv::Mat& quantizeGradient(const double maxGradientVal);
   void combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient);
+  void combineByMaskGradient(cv::Mat& dst,
+                             const cv::Mat& maxGradient,
+                             const double hue);
 
   void save(const boost::filesystem::path& path) const;
 

@@ -204,6 +204,23 @@ void Image::combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient) {
 }
 
 /**
+ * @brief Mask the image where its gradient != maxGradient
+ *
+ * @param dst destination image to add to
+ * @param maxGradient to compare its gradient to
+ * @param hue to color mask as
+ */
+void Image::combineByMaskGradient(cv::Mat& dst,
+                                  const cv::Mat& maxGradient,
+                                  const double hue) {
+  image = cv::Scalar(hue, std::numeric_limits<uint8_t>::max(),
+                     std::numeric_limits<uint8_t>::max());
+  cv::cvtColor(image, image, cv::COLOR_HSV2BGR);
+  cv::compare(gradient, maxGradient, gradient, cv::CMP_EQ);
+  cv::add(image, dst, dst, gradient);
+}
+
+/**
  * @brief Save the image to a path
  *
  * @param path to save image to
