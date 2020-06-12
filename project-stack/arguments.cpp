@@ -48,16 +48,12 @@ void Arguments::parse(
   }
 
 #if DEBUG
-  spdlog::set_level(spdlog::level::info);
+  spdlog::set_level(spdlog::level::debug);
 #else  /* DEBUG */
-  spdlog::set_level(spdlog::level::warn);
+  spdlog::set_level(spdlog::level::info);
 #endif /* DEBUG */
   if (result.count("verbose") != 0 && result["verbose"].as<bool>()) {
-#if DEBUG
     spdlog::set_level(spdlog::level::debug);
-#else  /* DEBUG */
-    spdlog::set_level(spdlog::level::info);
-#endif /* DEBUG */
   }
 
   if (result.count("path") == 0) {
@@ -75,6 +71,9 @@ void Arguments::parse(
        result["path"].as<std::vector<std::string>>()) {
     boost::filesystem::path path(pathStr);
     addPath(path, extFilter, recursive);
+  }
+  if (files.size() < 2) {
+    throw std::invalid_argument("Requires at least two files");
   }
 }
 
