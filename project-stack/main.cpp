@@ -45,25 +45,25 @@ int main(int argc, char* argv[]) {
     auto refItr                              = images.begin();
     size_t maxMinGoodMatches                 = 0;
     const pancake::Image* bestReferenceImage = &(*refItr);
-    // for (; refItr != images.end(); ++refItr) {
-    //   size_t minGoodMatches = std::numeric_limits<size_t>::max();
-    //   auto itr              = refItr;
-    //   ++itr;
-    //   while (itr != refItr) {
-    //     if (itr != images.end()) {
-    //       size_t goodMatches = (*itr).generateAlignment(matcher, *refItr);
-    //       minGoodMatches     = MIN(minGoodMatches, goodMatches);
-    //       ++itr;
-    //     } else {
-    //       itr = images.begin();
-    //     }
-    //   }
-    //   spdlog::debug("Reference had {} minimum good matches", minGoodMatches);
-    //   if (minGoodMatches > maxMinGoodMatches) {
-    //     maxMinGoodMatches  = minGoodMatches;
-    //     bestReferenceImage = &(*refItr);
-    //   }
-    // }
+    for (; refItr != images.end(); ++refItr) {
+      size_t minGoodMatches = std::numeric_limits<size_t>::max();
+      auto itr              = refItr;
+      ++itr;
+      while (itr != refItr) {
+        if (itr != images.end()) {
+          size_t goodMatches = (*itr).generateAlignment(matcher, *refItr);
+          minGoodMatches     = MIN(minGoodMatches, goodMatches);
+          ++itr;
+        } else {
+          itr = images.begin();
+        }
+      }
+      spdlog::debug("Reference had {} minimum good matches", minGoodMatches);
+      if (minGoodMatches > maxMinGoodMatches) {
+        maxMinGoodMatches  = minGoodMatches;
+        bestReferenceImage = &(*refItr);
+      }
+    }
 
     // Use that best reference image to warp transform the rest
     std::vector<double> cropRect(4);
@@ -81,73 +81,60 @@ int main(int argc, char* argv[]) {
       cropRect[3] = MAX(cropRect[3], rect[3]);  // Left
     }
 
-    // Compute the gradient and grab the maximum value amongst all images
-    double maxGradientVal = 0.0;
-    double hue            = 0.0;
-    double hueStep        = 180.0 / images.size();  // NOLINT
+    // Compute the gradient of each image and normalize per pixel
+    cv::Mat maxGradient;
     for (pancake::Image& image : images) {
       spdlog::debug("Cropping image");
       image.crop(cropRect);
       spdlog::debug("Computing gradient");
-      maxGradientVal = cv::max(maxGradientVal, image.computeGradient());
-      if (arguments.outputDepthMap()) {
-        spdlog::debug("Colorizing");
-        image.colorize(hue);
-        hue += hueStep;
-      }
-    }
-
-    cv::Mat maxGradient;
-    cv::Mat minGradient;
-    int i = 0;
-    for (pancake::Image& image : images) {
-      spdlog::debug("Quantizing gradient");
-      cv::Mat gradient = image.quantizeGradient(maxGradientVal);
-      if (arguments.outputGradients()) {
-        image.save(boost::filesystem::change_extension(
-                       arguments.getOutput(), std::to_string(i) + ".jpg"),
-                   true);
-        ++i;
-      }
-      if (maxGradient.size().empty()) {
-        gradient.copyTo(maxGradient);
-        gradient.copyTo(minGradient);
+      image.computeGradient();
+      if (maxGradient.empty()) {
+        image.computeGradient().copyTo(maxGradient);
       } else {
-        maxGradient = cv::max(maxGradient, gradient);
-        minGradient = cv::min(minGradient, gradient);
+        maxGradient = cv::max(maxGradient, image.computeGradient());
       }
     }
-
-    // Range of gradients ~ areas of high contrast
-    // An ideal stack would be bright all over
-    cv::Mat gradientRange;
-    cv::absdiff(maxGradient, minGradient, gradientRange);
-    gradientRange.convertTo(gradientRange, CV_64F);
-    double minGradientRange;
-    double maxGradientRange;
-    cv::minMaxLoc(gradientRange, &minGradientRange, &maxGradientRange);
-    gradientRange =
-        gradientRange / maxGradientRange * std::numeric_limits<uint8_t>::max();
-    cv::imwrite("temp/gradientRange.jpg", gradientRange);
+    for (pancake::Image& image : images) {
+      image.normalizeGradient(maxGradient);
+    }
 
     cv::Mat outputImage =
-        cv::Mat::zeros(maxGradient.size(), images.front().type());
-    for (pancake::Image& image : images) {
-      spdlog::debug("Combining image");
-      image.combineByMaskGradient(outputImage, maxGradient);
-    }
+        cv::Mat::zeros(images.front().size(), images.front().type());
+    pancake::Image::combine(outputImage, images);
+
     if (!cv::imwrite(arguments.getOutput().string(), outputImage)) {
       throw std::exception(
           ("Failed to save image to " + arguments.getOutput().string())
               .c_str());
     }
 
-    // int i = 0;
-    // for (const pancake::Image& image : images) {
-    //   std::string path = "temp/" + std::to_string(i) + ".jpg";
-    //   image.save(boost::filesystem::path(path));
-    //   ++i;
-    // }
+    if (arguments.outputDepthMap()) {
+      double hue     = 0.0;
+      double hueStep = 180.0 / images.size();  // NOLINT
+      spdlog::debug("Creating depth map");
+      for (pancake::Image& image : images) {
+        image.colorize(hue);
+        hue += hueStep;
+      }
+      pancake::Image::combine(outputImage, images);
+      auto path = boost::filesystem::change_extension(arguments.getOutput(),
+                                                      ".depth.jpg");
+      if (!cv::imwrite(path.string(), outputImage)) {
+        throw std::exception(
+            ("Failed to save image to " + arguments.getOutput().string())
+                .c_str());
+      }
+    }
+
+    if (arguments.outputGradients()) {
+      int i = 0;
+      for (const pancake::Image& image : images) {
+        auto path = boost::filesystem::change_extension(
+            arguments.getOutput(), std::to_string(i) + ".jpg");
+        image.save(path, true);
+        ++i;
+      }
+    }
   } catch (const std::exception& e) {
     spdlog::error(e.what());
     return 1;

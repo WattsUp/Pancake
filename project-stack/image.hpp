@@ -18,9 +18,8 @@ class Image {
 
   void crop(const std::vector<double>& rect);
 
-  double computeGradient();
-  const cv::Mat& quantizeGradient(const double maxGradientVal);
-  void combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient);
+  const cv::Mat& computeGradient();
+  void normalizeGradient(const cv::Mat& maxGradient);
   void colorize(const double hue);
 
   void save(const boost::filesystem::path& path,
@@ -32,6 +31,10 @@ class Image {
    * @return int OpenCV image types: CV_8U...
    */
   inline int type() const { return image.type(); }
+
+  inline cv::Size size() const { return image.size(); }
+
+  static void combine(cv::Mat& dst, std::list<Image>& images);
 
  private:
   static bool compareMatches(const cv::DMatch& i, const cv::DMatch& j);

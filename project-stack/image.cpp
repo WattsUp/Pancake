@@ -42,7 +42,7 @@ void Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
   if (keyPoints.empty() || descriptors.empty()) {
     feature2D->detectAndCompute(imageGrey, cv::noArray(), keyPoints,
                                 descriptors);
-    spdlog::debug("Saving features from {}", featuresPath);
+    spdlog::debug("Saving features to {}", featuresPath);
     cv::FileStorage fs(featuresPath.string(), cv::FileStorage::WRITE);
     cv::write(fs, "Key Points", keyPoints);
     cv::write(fs, "Descriptors", descriptors);
@@ -164,7 +164,7 @@ void Image::crop(const std::vector<double>& rect) {
  *
  * @param double maximum value of the computed gradient
  */
-double Image::computeGradient() {
+const cv::Mat& Image::computeGradient() {
   static constexpr int laplacianSize = 5;
   cv::Mat grey;
   cv::GaussianBlur(image, grey, cv::Size(laplacianSize, laplacianSize), 0);
@@ -175,35 +175,16 @@ double Image::computeGradient() {
   static constexpr double blurSize = 2.5;
   cv::GaussianBlur(gradient, gradient, cv::Size(0, 0), blurSize);
   // cv::normalize(gradient, gradient, 0.0, 1.0, cv::NORM_MINMAX);
-  double min;
-  double max;
-  cv::minMaxLoc(gradient, &min, &max);
-  return max;
-}
-
-/**
- * @brief Quantize the gradient to integers for binary comparison
- *
- * @param maxGradientVal to scale to
- * @return const cv::Mat&
- */
-const cv::Mat& Image::quantizeGradient(const double maxGradientVal) {
-  cv::Mat tmp;
-  gradient.convertTo(tmp, CV_32S,
-                     std::numeric_limits<int32_t>::max() / maxGradientVal);
-  gradient = tmp;
   return gradient;
 }
 
 /**
- * @brief Mask the image where its gradient != maxGradient
+ * @brief Normalize the gradient per pixel to the stack
  *
- * @param dst destination image to add to
- * @param maxGradient to compare its gradient to
+ * @param maxGradient per pixel maximum of gradients in the stack
  */
-void Image::combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient) {
-  cv::compare(gradient, maxGradient, gradient, cv::CMP_EQ);
-  cv::add(image, dst, dst, gradient);
+void Image::normalizeGradient(const cv::Mat& maxGradient) {
+  cv::divide(gradient, maxGradient, gradient);
 }
 
 /**
@@ -228,9 +209,7 @@ void Image::save(const boost::filesystem::path& dstPath,
   spdlog::info("Saving image to {}", dstPath);
   if (saveGradient) {
     cv::Mat tmp;
-    gradient.convertTo(tmp, CV_64F);
-    tmp = tmp / std::numeric_limits<int32_t>::max() *
-          std::numeric_limits<uint8_t>::max();
+    tmp = gradient * std::numeric_limits<uint8_t>::max();
     if (!cv::imwrite(dstPath.string(), tmp)) {
       throw std::exception(
           ("Failed to save image to " + dstPath.string()).c_str());
@@ -241,6 +220,45 @@ void Image::save(const boost::filesystem::path& dstPath,
           ("Failed to save image to " + dstPath.string()).c_str());
     }
   }
+}
+
+/**
+ * @brief Combine images together using their gradient map
+ *
+ * @param dst destination output image
+ * @param images list of images to combine
+ */
+void Image::combine(cv::Mat& dst, std::list<Image>& images) {
+  // Gradient weighted
+  for (int row = 0; row < images.front().image.rows; ++row) {
+    for (int col = 0; col < images.front().image.cols; ++col) {
+      double sumGradient = 0.0;
+      cv::Vec3d pixel(0.0, 0.0, 0.0);
+      for (const Image& image : images) {
+        double val = pow(image.gradient.at<double>(row, col), 6.0);
+        sumGradient += val;
+        pixel += cv::Vec3d(image.image.at<cv::Vec3b>(row, col)) * val;
+      }
+      pixel                       = pixel / sumGradient;
+      dst.at<cv::Vec3b>(row, col) = pixel;
+    }
+  }
+
+  // Boolean maximum gradient combiner
+  // for (int row = 0; row < images.front().image.rows; ++row) {
+  //   for (int col = 0; col < images.front().image.cols; ++col) {
+  //     double maxGradient = 0.0;
+  //     cv::Vec3b pixel(0, 0, 0);
+  //     for (const Image& image : images) {
+  //       double val = image.gradient.at<double>(row, col);
+  //       if (val > maxGradient) {
+  //         pixel       = image.image.at<cv::Vec3b>(row, col);
+  //         maxGradient = val;
+  //       }
+  //     }
+  //     dst.at<cv::Vec3b>(row, col) = pixel;
+  //   }
+  // }
 }
 
 /**
