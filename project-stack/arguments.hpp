@@ -41,6 +41,14 @@ class Arguments {
    */
   inline bool outputDepthMap() const { return depthMap; };
 
+  /**
+   * @brief Output gradients of each image
+   *
+   * @return true if gradients should be saved
+   * @return false otherwise
+   */
+  inline bool outputGradients() const { return gradients; };
+
  private:
   void addPath(const boost::filesystem::path& path,
                const boost::regex& extFilter,
@@ -51,7 +59,8 @@ class Arguments {
   std::list<boost::filesystem::path> files;
   boost::filesystem::path output;
 
-  bool depthMap = false;
+  bool depthMap        = false;
+  bool gradients = false;
 };
 
 }  // namespace pancake

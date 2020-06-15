@@ -14,7 +14,7 @@ namespace pancake {
  *
  * @param path to load image from
  */
-Image::Image(const boost::filesystem::path& path) {
+Image::Image(const boost::filesystem::path& path) : path(path) {
   spdlog::info("Loading image from {}", path);
   image = cv::imread(path.string(), cv::IMREAD_COLOR);
   if (image.data == nullptr) {
@@ -31,21 +31,24 @@ Image::Image(const boost::filesystem::path& path) {
 void Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
   cv::Mat imageGrey;
   cv::cvtColor(image, imageGrey, cv::COLOR_BGR2GRAY);
+  boost::filesystem::path featuresPath(path.string() + ".yml");
+  if (boost::filesystem::exists(featuresPath)) {
+    spdlog::info("Loading features from {}", featuresPath);
+    cv::FileStorage fs(featuresPath.string(), cv::FileStorage::READ);
+    cv::read(fs["Key Points"], keyPoints);
+    cv::read(fs["Descriptors"], descriptors);
+    fs.release();
+  }
+  if (keyPoints.empty() || descriptors.empty()) {
+    feature2D->detectAndCompute(imageGrey, cv::noArray(), keyPoints,
+                                descriptors);
+    spdlog::debug("Saving features from {}", featuresPath);
+    cv::FileStorage fs(featuresPath.string(), cv::FileStorage::WRITE);
+    cv::write(fs, "Key Points", keyPoints);
+    cv::write(fs, "Descriptors", descriptors);
+    fs.release();
+  }
 
-  // Scale to a max width and height of 1000 px
-  // TODO(WattsUp): fix transformation from scaled version to full size
-  // double ratio =
-  //     static_cast<double>(imageGrey.cols) /
-  //     static_cast<double>(imageGrey.rows);
-  // if (ratio > 1.0) {
-  //   cv::resize(imageGrey, imageGrey,
-  //              cv::Size(1000, static_cast<int>(1000 / ratio)));
-  // } else {
-  //   cv::resize(imageGrey, imageGrey,
-  //              cv::Size(static_cast<int>(1000 * ratio), 1000));
-  // }
-
-  feature2D->detectAndCompute(imageGrey, cv::noArray(), keyPoints, descriptors);
   // cv::drawKeypoints(image, keyPoints, image, cv::Scalar::all(-1),
   //                   cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 }
@@ -204,31 +207,39 @@ void Image::combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient) {
 }
 
 /**
- * @brief Mask the image where its gradient != maxGradient
+ * @brief Replace the image with a solid color with specified hue
  *
- * @param dst destination image to add to
- * @param maxGradient to compare its gradient to
- * @param hue to color mask as
+ * @param hue
  */
-void Image::combineByMaskGradient(cv::Mat& dst,
-                                  const cv::Mat& maxGradient,
-                                  const double hue) {
+void Image::colorize(const double hue) {
   image = cv::Scalar(hue, std::numeric_limits<uint8_t>::max(),
                      std::numeric_limits<uint8_t>::max());
   cv::cvtColor(image, image, cv::COLOR_HSV2BGR);
-  cv::compare(gradient, maxGradient, gradient, cv::CMP_EQ);
-  cv::add(image, dst, dst, gradient);
 }
 
 /**
  * @brief Save the image to a path
  *
- * @param path to save image to
+ * @param dstPath to save image to
+ * @param saveGradient will save the gradient image instead of the base if true
  */
-void Image::save(const boost::filesystem::path& path) const {
-  spdlog::info("Saving image to {}", path);
-  if (!cv::imwrite(path.string(), image)) {
-    throw std::exception(("Failed to save image to " + path.string()).c_str());
+void Image::save(const boost::filesystem::path& dstPath,
+                 bool saveGradient) const {
+  spdlog::info("Saving image to {}", dstPath);
+  if (saveGradient) {
+    cv::Mat tmp;
+    gradient.convertTo(tmp, CV_64F);
+    tmp = tmp / std::numeric_limits<int32_t>::max() *
+          std::numeric_limits<uint8_t>::max();
+    if (!cv::imwrite(dstPath.string(), tmp)) {
+      throw std::exception(
+          ("Failed to save image to " + dstPath.string()).c_str());
+    }
+  } else {
+    if (!cv::imwrite(dstPath.string(), image)) {
+      throw std::exception(
+          ("Failed to save image to " + dstPath.string()).c_str());
+    }
   }
 }
 

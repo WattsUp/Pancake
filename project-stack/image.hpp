@@ -21,11 +21,10 @@ class Image {
   double computeGradient();
   const cv::Mat& quantizeGradient(const double maxGradientVal);
   void combineByMaskGradient(cv::Mat& dst, const cv::Mat& maxGradient);
-  void combineByMaskGradient(cv::Mat& dst,
-                             const cv::Mat& maxGradient,
-                             const double hue);
+  void colorize(const double hue);
 
-  void save(const boost::filesystem::path& path) const;
+  void save(const boost::filesystem::path& path,
+            bool saveGradient = false) const;
 
   /**
    * @brief Get the type of image stored
@@ -36,6 +35,8 @@ class Image {
 
  private:
   static bool compareMatches(const cv::DMatch& i, const cv::DMatch& j);
+
+  const boost::filesystem::path path;
 
   cv::Mat image;
   cv::Mat gradient;

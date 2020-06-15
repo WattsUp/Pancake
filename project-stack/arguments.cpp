@@ -28,6 +28,9 @@ Arguments::Arguments() : options("Pancake", "A photography stacking tool") {
                "Output image representing a depth map of the scene (images "
                "must be in order)",
                cxxopts::value<bool>()->default_value("false"));
+  optionsAdder("output-gradients",
+               "Output image representing the gradient of each image",
+               cxxopts::value<bool>()->default_value("false"));
 }
 
 /**
@@ -60,7 +63,7 @@ void Arguments::parse(
 #else  /* DEBUG */
   spdlog::set_level(spdlog::level::info);
 #endif /* DEBUG */
-  if (result.count("verbose") != 0 && result["verbose"].as<bool>()) {
+  if (result.count("verbose") != 0) {
     spdlog::set_level(spdlog::level::debug);
   }
 
@@ -73,8 +76,7 @@ void Arguments::parse(
   }
   output = boost::filesystem::path(result["output"].as<std::string>());
 
-  bool recursive =
-      (result.count("recursive") != 0 && result["recursive"].as<bool>());
+  bool recursive = (result.count("recursive") != 0);
 
   static const boost::regex extFilter(
       "\\.(bmp|dip|jpeg|jpg|jpe|jp2|png|webp|pbm|pgm|ppm|pxm|pnm|pfm|sr|ras|"
@@ -89,8 +91,12 @@ void Arguments::parse(
     throw std::invalid_argument("Requires at least two files");
   }
 
-  if (result.count("depth-map") != 0 && result["depth-map"].as<bool>()) {
+  if (result.count("depth-map") != 0) {
     depthMap = true;
+  }
+
+  if (result.count("output-gradients") != 0) {
+    gradients = true;
   }
 }
 
@@ -119,6 +125,10 @@ void Arguments::addPath(const boost::filesystem::path& path,
     return;
   }
   if (boost::filesystem::is_regular_file(path)) {
+    if (path.extension() == ".yml") {
+      spdlog::debug("Skipping {}, likely features file", path);
+      return;
+    }
     if (!boost::regex_match(path.extension().string(), extFilter)) {
       spdlog::warn("Path {} does not have a compatible extension", path);
       return;
