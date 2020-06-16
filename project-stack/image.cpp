@@ -27,8 +27,10 @@ Image::Image(const boost::filesystem::path& path) : path(path) {
  * @brief Detect features for alignment
  *
  * @param feature2D algorithm for detecting features
+ * @return bool true if affine transformation was loaded from file, false
+ * otherwise
  */
-void Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
+bool Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
   cv::Mat imageGrey;
   cv::cvtColor(image, imageGrey, cv::COLOR_BGR2GRAY);
   boost::filesystem::path featuresPath(path.string() + ".yml");
@@ -37,6 +39,9 @@ void Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
     cv::FileStorage fs(featuresPath.string(), cv::FileStorage::READ);
     cv::read(fs["Key Points"], keyPoints);
     cv::read(fs["Descriptors"], descriptors);
+    if (!fs["Affine"].empty()) {
+      cv::read(fs["Affine"], totalAffine);
+    }
     fs.release();
   }
   if (keyPoints.empty() || descriptors.empty()) {
@@ -51,6 +56,7 @@ void Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
 
   // cv::drawKeypoints(image, keyPoints, image, cv::Scalar::all(-1),
   //                   cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+  return !totalAffine.empty();
 }
 
 /**
@@ -59,17 +65,14 @@ void Image::detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D) {
  *
  * @param matcher algorithm for matching features
  * @param reference image
- * @return size_t number of good matches used to align
  */
-size_t Image::generateAlignment(const cv::Ptr<cv::DescriptorMatcher>& matcher,
-                                const Image& reference) {
+void Image::generateBestAlignment(const cv::Ptr<cv::DescriptorMatcher>& matcher,
+                                  const Image& reference) {
   // Find the best two matches for each descriptor
   std::vector<std::vector<cv::DMatch>> matches;
   matcher->knnMatch(descriptors, reference.descriptors, matches, 2);
 
   std::vector<cv::DMatch> filteredMatches;
-  pointsImage.clear();
-  pointsReference.clear();
 
   // Ratio test, identify strong key points that have a first match that is
   // closer than 75% of its second match. Collect the corresponding key points
@@ -78,38 +81,63 @@ size_t Image::generateAlignment(const cv::Ptr<cv::DescriptorMatcher>& matcher,
   for (const std::vector<cv::DMatch>& matchPair : matches) {
     if (matchPair[0].distance < ratioTest * matchPair[1].distance) {
       filteredMatches.emplace_back(matchPair[0]);
-      pointsImage.emplace_back(keyPoints[matchPair[0].queryIdx].pt);
-      pointsReference.emplace_back(
-          reference.keyPoints[matchPair[0].trainIdx].pt);
     }
   }
 
-  return filteredMatches.size();
+  // If match is better than existing, replace
+  if (filteredMatches.size() > bestMatchesCount) {
+    bestMatchesCount = filteredMatches.size();
+    std::vector<cv::Point2f> pointsImage;
+    std::vector<cv::Point2f> pointsReference;
+    for (const cv::DMatch& match : filteredMatches) {
+      pointsImage.emplace_back(keyPoints[match.queryIdx].pt);
+      pointsReference.emplace_back(reference.keyPoints[match.trainIdx].pt);
+    }
+    referenceAffine     = cv::Mat::eye(3, 3, CV_64F);
+    cv::Mat affine2Rows = cv::estimateAffine2D(pointsImage, pointsReference);
+    affine2Rows.row(0).copyTo(referenceAffine.row(0));
+    affine2Rows.row(1).copyTo(referenceAffine.row(1));
+    bestReferenceImage = &reference;
+  }
+}
+
+/**
+ * @brief Get the total compounded affine transformation by stepping down the
+ * tree of reference images
+ *
+ * @return cv::Mat
+ */
+cv::Mat Image::getTotalAffine() const {
+  if (referenceAffine.empty()) {
+    return cv::Mat::eye(3, 3, CV_64F);
+  }
+
+  cv::Mat bestReferenceAffine = bestReferenceImage->getTotalAffine();
+  return bestReferenceAffine * referenceAffine;
 }
 
 /**
  * @brief Apply alignment generated in generateAlignment
  *
  * @return std::vector<double> minimum rectangle for cropping purposes: top,
- * right, left, bottom
+ * right, bottom, left
  */
 std::vector<double> Image::applyAlignment() {
-  if (pointsImage.empty()) {
-    throw std::logic_error(
-        "generateAlignment must be called before applyAlignment");
+  // Read from file if available
+  if (totalAffine.empty()) {
+    boost::filesystem::path featuresPath(path.string() + ".yml");
+    totalAffine = getTotalAffine().rowRange(0, 2);
+    spdlog::debug("Saving affine and features to {}", featuresPath);
+    cv::FileStorage fs(featuresPath.string(), cv::FileStorage::WRITE);
+    cv::write(fs, "Affine", totalAffine);
+    cv::write(fs, "Key Points", keyPoints);
+    cv::write(fs, "Descriptors", descriptors);
+    fs.release();
   }
-  // cv::drawMatches(image, keyPoints, reference.image, reference.keyPoints,
-  //                 filteredMatches, imageGrey);
-
-  // // Find homography transformation between the key points
-  // cv::Mat homography =
-  //     cv::findHomography(pointsImage, pointsReference, cv::RANSAC);
-  // cv::warpPerspective(image, imageGrey, homography, image.size());
 
   // Find affine transformation between the key points
   // Assumes the perspective does not change
-  cv::Mat affine = cv::estimateAffine2D(pointsImage, pointsReference);
-  cv::warpAffine(image, image, affine, image.size());
+  cv::warpAffine(image, image, totalAffine, image.size());
 
   // Get bounding box
   std::vector<cv::Point2d> corners(4);
@@ -121,10 +149,12 @@ std::vector<double> Image::applyAlignment() {
   for (cv::Point2d& point : corners) {
     cv::Point2d original = point;
 
-    point.x = original.x * affine.at<double>(0, 0) +
-              original.y * affine.at<double>(0, 1) + affine.at<double>(0, 2);
-    point.y = original.x * affine.at<double>(1, 0) +
-              original.y * affine.at<double>(1, 1) + affine.at<double>(1, 2);
+    point.x = original.x * totalAffine.at<double>(0, 0) +
+              original.y * totalAffine.at<double>(0, 1) +
+              totalAffine.at<double>(0, 2);
+    point.y = original.x * totalAffine.at<double>(1, 0) +
+              original.y * totalAffine.at<double>(1, 1) +
+              totalAffine.at<double>(1, 2);
   }
 
   // Find smallest rectangle that fits in the transformed image
@@ -134,14 +164,6 @@ std::vector<double> Image::applyAlignment() {
   rect[2] = MIN(corners[2].y, corners[3].y);  // Bottom
   rect[3] = MAX(corners[0].x, corners[3].x);  // Left
 
-  // corners[0]    = cv::Point2d(rect[3], rect[0]);
-  // corners[1]    = cv::Point2d(rect[1], rect[0]);
-  // corners[2]    = cv::Point2d(rect[1], rect[2]);
-  // corners[3]    = cv::Point2d(rect[3], rect[2]);
-  // cv::line(image, corners[0], corners[1], cv::Scalar(0, 255, 0));
-  // cv::line(image, corners[1], corners[2], cv::Scalar(0, 255, 0));
-  // cv::line(image, corners[2], corners[3], cv::Scalar(0, 255, 0));
-  // cv::line(image, corners[3], corners[0], cv::Scalar(0, 255, 0));
   return rect;
 }
 

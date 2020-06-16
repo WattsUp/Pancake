@@ -31,6 +31,8 @@ Arguments::Arguments() : options("Pancake", "A photography stacking tool") {
   optionsAdder("output-gradients",
                "Output image representing the gradient of each image",
                cxxopts::value<bool>()->default_value("false"));
+  optionsAdder("output-alignments", "Output each aligned image",
+               cxxopts::value<bool>()->default_value("false"));
 }
 
 /**
@@ -97,6 +99,10 @@ void Arguments::parse(
 
   if (result.count("output-gradients") != 0) {
     gradients = true;
+  }
+
+  if (result.count("output-alignments") != 0) {
+    alignments = true;
   }
 }
 

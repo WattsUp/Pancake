@@ -11,9 +11,9 @@ class Image {
  public:
   Image(const boost::filesystem::path& path);
 
-  void detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D);
-  size_t generateAlignment(const cv::Ptr<cv::DescriptorMatcher>& matcher,
-                           const Image& reference);
+  bool detectFeatures(const cv::Ptr<cv::Feature2D>& feature2D);
+  void generateBestAlignment(const cv::Ptr<cv::DescriptorMatcher>& matcher,
+                             const Image& reference);
   std::vector<double> applyAlignment();
 
   void crop(const std::vector<double>& rect);
@@ -32,12 +32,26 @@ class Image {
    */
   inline int type() const { return image.type(); }
 
+  /**
+   * @brief Get the size of image stored
+   *
+   * @return cv::Size
+   */
   inline cv::Size size() const { return image.size(); }
+
+  /**
+   * @brief Get the name of the image stored
+   *
+   * @return const std::string&
+   */
+  inline std::string getName() const { return path.filename().string(); };
 
   static void combine(cv::Mat& dst, std::list<Image>& images);
 
  private:
   static bool compareMatches(const cv::DMatch& i, const cv::DMatch& j);
+
+  cv::Mat getTotalAffine() const;
 
   const boost::filesystem::path path;
 
@@ -46,8 +60,11 @@ class Image {
 
   std::vector<cv::KeyPoint> keyPoints;
   cv::Mat descriptors;
-  std::vector<cv::Point2f> pointsImage;
-  std::vector<cv::Point2f> pointsReference;
+
+  const Image* bestReferenceImage = nullptr;
+  size_t bestMatchesCount         = 0;
+  cv::Mat referenceAffine;
+  cv::Mat totalAffine;
 };
 
 }  // namespace pancake

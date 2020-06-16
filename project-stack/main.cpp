@@ -31,48 +31,39 @@ int main(int argc, char* argv[]) {
     // feature2D = cv::ORB::create(1000);
     feature2D = cv::xfeatures2d::SIFT::create();
 
+    bool affineLoaded = true;
     for (const boost::filesystem::path& file : arguments.getFiles()) {
       images.emplace_back(pancake::Image(file));
-      images.back().detectFeatures(feature2D);
+      affineLoaded = images.back().detectFeatures(feature2D) && affineLoaded;
     }
 
-    cv::Ptr<cv::DescriptorMatcher> matcher;
-    matcher = cv::BFMatcher::create();
+    // If not all the images have an affine transformation loaded from file,
+    // rematch all
+    if (!affineLoaded) {
+      cv::Ptr<cv::DescriptorMatcher> matcher;
+      matcher = cv::BFMatcher::create();
 
-    // Use each image as a reference to find the best one to use
-    // Best: highest minimum number of matches, i.e. reference that matches with
-    // all of them the best rather than a couple really good
-    auto refItr                              = images.begin();
-    size_t maxMinGoodMatches                 = 0;
-    const pancake::Image* bestReferenceImage = &(*refItr);
-    for (; refItr != images.end(); ++refItr) {
-      size_t minGoodMatches = std::numeric_limits<size_t>::max();
-      auto itr              = refItr;
-      ++itr;
-      while (itr != refItr) {
-        if (itr != images.end()) {
-          size_t goodMatches = (*itr).generateAlignment(matcher, *refItr);
-          minGoodMatches     = MIN(minGoodMatches, goodMatches);
-          ++itr;
-        } else {
-          itr = images.begin();
+      // Align each image to each remaining image, keeping the reference image
+      // that yields the most number of matches
+      auto image1 = images.begin();
+      for (; image1 != images.end(); ++image1) {
+        spdlog::debug("Aligning {}", (*image1).getName());
+        auto image2 = image1;
+        ++image2;
+        for (; image2 != images.end(); ++image2) {
+          (*image1).generateBestAlignment(matcher, *image2);
         }
       }
-      spdlog::debug("Reference had {} minimum good matches", minGoodMatches);
-      if (minGoodMatches > maxMinGoodMatches) {
-        maxMinGoodMatches  = minGoodMatches;
-        bestReferenceImage = &(*refItr);
-      }
     }
 
-    // Use that best reference image to warp transform the rest
+    // Apply alignment and compute largest rectangle that contains all images,
+    // crop to that rectangle
     std::vector<double> cropRect(4);
     cropRect[0] = 0;                                   // Top
     cropRect[1] = std::numeric_limits<double>::max();  // Right
     cropRect[2] = std::numeric_limits<double>::max();  // Bottom
     cropRect[3] = 0;                                   // Left
     for (pancake::Image& image : images) {
-      image.generateAlignment(matcher, *bestReferenceImage);
       std::vector<double> rect = image.applyAlignment();
 
       cropRect[0] = MAX(cropRect[0], rect[0]);  // Top
@@ -83,9 +74,17 @@ int main(int argc, char* argv[]) {
 
     // Compute the gradient of each image and normalize per pixel
     cv::Mat maxGradient;
+    int i = 0;
     for (pancake::Image& image : images) {
       spdlog::debug("Cropping image");
       image.crop(cropRect);
+      if (arguments.outputAlignments()) {
+        auto path = boost::filesystem::change_extension(
+            arguments.getOutput(), std::to_string(i) + ".aligned.jpg");
+        ++i;
+        image.save(path);
+      }
+
       spdlog::debug("Computing gradient");
       image.computeGradient();
       if (maxGradient.empty()) {
@@ -94,12 +93,25 @@ int main(int argc, char* argv[]) {
         maxGradient = cv::max(maxGradient, image.computeGradient());
       }
     }
+    // Normalize the gradient per pixel: largest gradient is 1.0 and the others
+    // are proportionate to that maximum
     for (pancake::Image& image : images) {
       image.normalizeGradient(maxGradient);
     }
 
+    if (arguments.outputGradients()) {
+      i = 0;
+      for (const pancake::Image& image : images) {
+        auto path = boost::filesystem::change_extension(
+            arguments.getOutput(), std::to_string(i) + "gradient.jpg");
+        image.save(path, true);
+        ++i;
+      }
+    }
+
     cv::Mat outputImage =
         cv::Mat::zeros(images.front().size(), images.front().type());
+    spdlog::debug("Combining output image");
     pancake::Image::combine(outputImage, images);
 
     if (!cv::imwrite(arguments.getOutput().string(), outputImage)) {
@@ -123,16 +135,6 @@ int main(int argc, char* argv[]) {
         throw std::exception(
             ("Failed to save image to " + arguments.getOutput().string())
                 .c_str());
-      }
-    }
-
-    if (arguments.outputGradients()) {
-      int i = 0;
-      for (const pancake::Image& image : images) {
-        auto path = boost::filesystem::change_extension(
-            arguments.getOutput(), std::to_string(i) + ".jpg");
-        image.save(path, true);
-        ++i;
       }
     }
   } catch (const std::exception& e) {
