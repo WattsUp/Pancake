@@ -2,12 +2,19 @@
 Photography image stacker for use in extended depth of field of macro images
 
 ## Building ##
+### Dependencies ###
+On Windows I recommend using [vcpkg](https://github.com/Microsoft/vcpkg)
+* [spdlog](https://github.com/gabime/spdlog) logging library
+* [Google Test](https://github.com/google/googletest) framework
+* [OpenImageIO](https://github.com/OpenImageIO/oiio)
+* [cxxopts](https://github.com/jarro2783/cxxopts) command line parser
+
 ### Git Clone ###
-Clone the repository and its submodules
+Clone the repository
 ```bash
 > mkdir workspace
 > cd workspace
-> git clone --recurse-submodules https://github.com/WattsUp/Pancake
+> git clone https://github.com/WattsUp/Pancake
 ```
 
 ### Manually Building ###
@@ -34,10 +41,3 @@ Configure the project with default compiler and compile
 
 ### Projects ###
 * `project-stack` Command line application to normalize, register, align, and stack images together
-
-### Dependencies ###
-On Windows I recommend using [vcpkg](https://github.com/Microsoft/vcpkg)
-* [spdlog](https://github.com/gabime/spdlog) logging library
-* [Google Test](https://github.com/google/googletest) framework
-* [OpenImageIO](https://github.com/OpenImageIO/oiio)
-* [cxxopts](https://github.com/jarro2783/cxxopts) command line parser
