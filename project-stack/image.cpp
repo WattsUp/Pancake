@@ -283,15 +283,4 @@ void Image::combine(cv::Mat& dst, std::list<Image>& images) {
   // }
 }
 
-/**
- * @brief Compare two matches, sorts smallest to largest distance
- *
- * @param i match 1
- * @param j match 2
- * @return i.distance < j.distance
- */
-bool Image::compareMatches(const cv::DMatch& i, const cv::DMatch& j) {
-  return i.distance < j.distance;
-}
-
 }  // namespace pancake

@@ -49,8 +49,6 @@ class Image {
   static void combine(cv::Mat& dst, std::list<Image>& images);
 
  private:
-  static bool compareMatches(const cv::DMatch& i, const cv::DMatch& j);
-
   cv::Mat getTotalAffine() const;
 
   const boost::filesystem::path path;
