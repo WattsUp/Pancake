@@ -1,2 +1,6 @@
 # Force LF checkout for all source files
 * text=auto eol=lf
+
+## Linguist settings
+# Ignore libraries
+libraries/miniz/* linguist-vendored
